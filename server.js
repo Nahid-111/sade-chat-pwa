@@ -6,7 +6,14 @@ const multer = require('multer');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// Render təhlükəsizlik kilidini qıran əsas hissə
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 const DB_FILE = './messages.json';
 const multerInMemory = multer({ storage: multer.memoryStorage() });
