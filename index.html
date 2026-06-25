@@ -27,12 +27,9 @@
         #input { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 15px; background: white; }
         .attach-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #54656f; padding: 0 5px; }
         #image-input { display: none; }
-        
-        /* Səs yazma düyməsinin rəng dəyişmə effekti */
         .voice-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #54656f; padding: 0 5px; transition: color 0.2s; }
         .recording { color: red !important; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
         #send-btn { background: #00a884; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; }
         #send-btn:hover { background: #008069; }
     </style>
@@ -50,13 +47,9 @@
         <div id="header">WhatsApp Canlı Chat (<span id="my-name">...</span>)</div>
         <ul id="messages"></ul>
         <form id="form" action="">
-            <!-- Şəkil Düyməsi -->
             <label for="image-input" class="attach-btn">📎</label>
             <input type="file" id="image-input" accept="image/*">
-            
-            <!-- SƏS YAZMA DÜYMƏSİ (🎙️) -->
             <button type="button" id="voice-btn" class="voice-btn">🎙️</button>
-
             <input id="input" autocomplete="off" placeholder="Mesajınızı yazın..." />
             <button id="send-btn">Göndər</button>
         </form>
@@ -64,7 +57,8 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();https://sade-chat-pwa.onrender.com
+        // Bağlantı bura avtomatik təyin olundu (Möhtəşəm hiylə!)
+        const socket = io(); 
         
         const loginContainer = document.getElementById('login-container');
         const chatContainer = document.getElementById('chat-container');
@@ -110,12 +104,7 @@
 
             let contentHTML = `<div class="username">${msg.username}</div>`;
             if (msg.image) { contentHTML += `<img src="${msg.image}" class="chat-image" />`; }
-            
-            // Əgər mesajda səs yazısı varsa audio pleyer əlavə et
-            if (msg.audio) { 
-                contentHTML += `<audio src="${msg.audio}" controls class="chat-audio"></audio>`; 
-            }
-            
+            if (msg.audio) { contentHTML += `<audio src="${msg.audio}" controls class="chat-audio"></audio>`; }
             if (msg.text) { contentHTML += `<div class="msg-text">${msg.text}</div>`; }
             contentHTML += `<div class="time">${msg.time}</div>`;
             
@@ -126,10 +115,9 @@
 
         // ŞƏKİL SEÇİLƏNDƏ
         imageInput.addEventListener('change', () => {
-            const file = imageInput.files[0];
-            if (!file) return;
+            if (!imageInput.files || !imageInput.files[0]) return;
             const formData = new FormData();
-            formData.append('image', file);
+            formData.append('image', imageInput.files[0]);
             fetch('/upload', { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
@@ -140,45 +128,31 @@
             imageInput.value = '';
         });
 
-        // SƏS YAZMA MƏNTİQİ (MİKROFON)
+        // SƏS YAZMA (MİKROFON)
         voiceBtn.addEventListener('click', () => {
             if (!isRecording) {
-                // Mikrofon icazəsi istəyirik
                 navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(stream => {
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
-                    
-                    mediaRecorder.addEventListener("dataavailable", event => {
-                        audioChunks.push(event.data);
-                    });
-
+                    mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
                     mediaRecorder.addEventListener("stop", () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
                         const reader = new FileReader();
                         reader.readAsDataURL(audioBlob); 
                         reader.onloadend = () => {
-                            const base64Audio = reader.result;
-                            // Səsi birbaşa çat otağına göndəririk
-                            socket.emit('chat mesajı', {
-                                username: myUsername,
-                                text: '',
-                                image: null,
-                                audio: base64Audio
-                            });
+                            socket.emit('chat mesajı', { username: myUsername, text: '', image: null, audio: reader.result });
                         }
                     });
-
                     mediaRecorder.start();
                     isRecording = true;
-                    voiceBtn.classList.add('recording'); // Düyməni qırmızı et
+                    voiceBtn.classList.add('recording');
                 })
                 .catch(err => alert("Mikrofona icazə verilmədi!"));
             } else {
-                // Əgər artıq səs yazılırdısa, dayandır və göndər
                 mediaRecorder.stop();
                 isRecording = false;
-                voiceBtn.classList.remove('recording'); // Qırmızı rəngi sil
+                voiceBtn.classList.remove('recording');
             }
         });
 
@@ -195,3 +169,7 @@
             }
         });
 
+        socket.on('chat mesajı', (msg) => { appendMessage(msg); });
+    </script>
+</body>
+</html>

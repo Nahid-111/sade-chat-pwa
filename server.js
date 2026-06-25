@@ -28,6 +28,7 @@ app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
 app.get('/manifest.json', (req, res) => res.sendFile(__dirname + '/manifest.json'));
 app.get('/sw.js', (req, res) => res.sendFile(__dirname + '/sw.js'));
 
+// ŞƏKİL YÜKLƏMƏ MƏNTİQİ (Base64 formatında - Render üçün ən təhlükəsiz üsul)
 app.post('/upload', multerInMemory.single('image'), (req, res) => {
     if (req.file) {
         const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
@@ -45,7 +46,7 @@ io.on('connection', (socket) => {
             username: data.username || 'Anonim',
             text: data.text || '',
             image: data.image || null,
-            audio: data.audio || null, // Səs yazısı dəstəyi
+            audio: data.audio || null,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         saveMessage(newMsg);
