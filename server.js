@@ -1,6 +1,6 @@
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
+const { Server } = requirapp.post('/upload'e('socket.io');
 const fs = require('fs');
 const multer = require('multer'); // Şəkil üçün yeni alət
 const path = require('path');
@@ -41,11 +41,17 @@ app.get('/manifest.json', (req, res) => res.sendFile(__dirname + '/manifest.json
 app.get('/sw.js', (req, res) => res.sendFile(__dirname + '/sw.js'));
 
 // ŞƏKİL YÜKLƏMƏK ÜÇÜN YENİ İNTERNET SƏTRİ (API)
-app.post('/upload', upload.single('image'), (req, res) => {
+,// YENİ KODU BURA YAPIŞDIRIN:
+const multerInMemory = multer({ storage: multer.memoryStorage() });
+app.post('/upload', multerInMemory.single('image'), (req, res) => {
     if (req.file) {
-        res.json({ imageUrl: '/uploads/' + req.file.filename });
+        const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+        res.json({ imageUrl: base64Image });
     } else {
-        res.status(400).json({ error: 'Şəkil yüklənmədi' });
+        res.status(400).json({ error: 'Şəkil yüklənə bilmədi' });
+    }
+});
+
     }
 });
 
