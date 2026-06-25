@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Web Style Chat</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #dddbd1; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        /* GİRİŞ EKRANI DIZAYNI */
+        #login-container { width: 400px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; gap: 20px; }
+        #login-container h2 { color: #008069; margin-bottom: 10px; }
+        #username-input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
+        #login-btn { background: #00a884; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        #login-btn:hover { background: #008069; }
+
+        /* ÇAT EKRANI DIZAYNI */
+        #chat-container { width: 450px; height: 90vh; background: #efeae2; display: none; flex-direction: column; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); overflow: hidden; }
+        #header { background: #008069; color: white; padding: 15px; font-size: 18px; font-weight: bold; }
+        #messages { list-style-type: none; padding: 20px; flex-grow: 1; overflow-y: auto; background-image: url('https://githubusercontent.com'); background-blend-mode: overlay; background-color: #efeae2; display: flex; flex-direction: column; }
+        #messages li { max-width: 75%; padding: 8px 12px; margin-bottom: 10px; border-radius: 7px; position: relative; font-size: 15px; line-height: 1.4; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .msg-received { background: white; align-self: flex-start; border-top-left-radius: 0 !important; }
+        .msg-sent { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 0 !important; }
+        .username { font-weight: bold; font-size: 12px; color: #128c7e; margin-bottom: 2px; }
+        .msg-text { color: #111; margin-bottom: 12px; }
+        .time { font-size: 10px; color: #667781; position: absolute; bottom: 2px; right: 7px; }
+        #form { background: #f0f2f5; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #e9edef; }
+        #input { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 15px; background: white; }
+        #send-btn { background: #00a884; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; }
+        #send-btn:hover { background: #008069; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. ADDIM: GİRİŞ PANELİ -->
+    <div id="login-container">
+        <h2>WhatsApp Canlı Chat</h2>
+        <p style="color: #666; font-size: 14px;">Daxil olmaq üçün adınızı yazın:</p>
+        <input type="text" id="username-input" placeholder="Adınız..." autocomplete="off">
+        <button id="login-btn">Çata Daxil Ol</button>
+    </div><link rel="manifest" href="/manifest.json">
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+    }
+</script>
+
+
+    <!-- 2. ADDIM: ƏSAS ÇAT PANELİ -->
+    <div id="chat-container">
+        <div id="header">WhatsApp Canlı Chat (<span id="my-name">...</span>)</div>
+        <ul id="messages"></ul>
+        <form id="form" action="">
+            <input id="input" autocomplete="off" placeholder="Mesajınızı yazın..." />
+            <button id="send-btn">Göndər</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        const loginContainer = document.getElementById('login-container');
+        const chatContainer = document.getElementById('chat-container');
+        const usernameInput = document.getElementById('username-input');
+        const loginBtn = document.getElementById('login-btn');
+        const myNameSpan = document.getElementById('my-name');
+        
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+        
+        let myUsername = localStorage.getItem('chat_username');
+
+        // Əgər ad əvvəldən yaddaşda varsa, birbaşa çata keç
+        if (myUsername) {
+            startChat(myUsername);
+        }
+
+        // Giriş düyməsinə basanda
+        loginBtn.addEventListener('click', () => {
+            const name = usernameInput.value.trim();
+            if (name) {
+                localStorage.setItem('chat_username', name);
+                startChat(name);
+            }
+        });
+
+        function startChat(username) {
+            myUsername = username;
+            myNameSpan.textContent = myUsername;
+            loginContainer.style.display = 'none'; // Giriş ekranını gizlət
+            chatContainer.style.display = 'flex'; // Çat ekranını aç
+        }
+
+        function appendMessage(msg) {
+            const item = document.createElement('li');
+            if (msg.username === myUsername) {
+                item.classList.add('msg-sent');
+            } else {
+                item.classList.add('msg-received');
+            }
+
+            item.innerHTML = `
+                <div class="username">${msg.username}</div>
+                <div class="msg-text">${msg.text}</div>
+                <div class="time">${msg.time}</div>
+            `;
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        socket.on('keçmiş mesajlar', (savedMessages) => {
+            messages.innerHTML = '';
+            savedMessages.forEach(msg => appendMessage(msg));
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value.trim()) {
+                socket.emit('chat mesajı', {
+                    username: myUsername,
+                    text: input.value
+                });
+                input.value = '';
+            }
+        });
+
+        socket.on('chat mesajı', (msg) => {
+            appendMessage(msg);
+        });
+    </script>
+</body>
+</html>
