@@ -1,9 +1,8 @@
 const express = require('express');
 const http = require('http');
-const { Server } = requirapp.post('/upload'e('socket.io');
+const { Server } = require('socket.io');
 const fs = require('fs');
-const multer = require('multer'); // Şəkil üçün yeni alət
-const path = require('path');
+const multer = require('multer');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,17 +10,8 @@ const io = new Server(server);
 
 const DB_FILE = './messages.json';
 
-// Şəkillərin hara və hansı adla yazılacağını təyin edirik
-const storage = multer.diskStorage({
-    destination: './uploads/',
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage: storage });
-
-// uploads qovluğunu internetə açırıq ki şəkillər brauzerdə görünsün
-app.use('/uploads', express.static('uploads'));
+// Yüngül yaddaş sistemi (Render-də donma yaratmır)
+const multerInMemory = multer({ storage: multer.memoryStorage() });
 
 function getSavedMessages() {
     if (!fs.existsSync(DB_FILE)) return [];
@@ -40,18 +30,13 @@ app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
 app.get('/manifest.json', (req, res) => res.sendFile(__dirname + '/manifest.json'));
 app.get('/sw.js', (req, res) => res.sendFile(__dirname + '/sw.js'));
 
-// ŞƏKİL YÜKLƏMƏK ÜÇÜN YENİ İNTERNET SƏTRİ (API)
-,// YENİ KODU BURA YAPIŞDIRIN:
-const multerInMemory = multer({ storage: multer.memoryStorage() });
+// ŞƏKİL YÜKLƏMƏ SƏTRİ
 app.post('/upload', multerInMemory.single('image'), (req, res) => {
     if (req.file) {
         const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
         res.json({ imageUrl: base64Image });
     } else {
         res.status(400).json({ error: 'Şəkil yüklənə bilmədi' });
-    }
-});
-
     }
 });
 
@@ -62,7 +47,7 @@ io.on('connection', (socket) => {
         const newMsg = {
             username: data.username || 'Anonim',
             text: data.text || '',
-            image: data.image || null, // Əgər şəkil varsa bura yazılacaq
+            image: data.image || null,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         saveMessage(newMsg);
