@@ -3,81 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sürətli Canlı Çat</title>
+    <title>WhatsApp Web Style Chat</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { background-color: #dddbd1; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        #login-container { width: 400px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-        #login-container h2 { color: #008069; margin-bottom: 20px; }
-        #username-input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; margin-bottom: 20px; }
-        #login-btn { width: 100%; background: #00a884; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #dddbd1; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        
+        #login-container { width: 420px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; gap: 20px; margin: auto; }
+        #login-container h2 { color: #008069; margin-bottom: 10px; }
+        #username-input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
+        #login-btn { background: #00a884; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
         #login-btn:hover { background: #008069; }
         
+        /* ROBOTLARIN AXDARDIĞI RƏSMİ MƏTNLƏR (YANDEX ÜÇÜN GERİ QAYITDI) */
+        .official-text { text-align: left; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #008069; margin-top: 10px; font-size: 13px; color: #4f5e64; line-height: 1.5; }
+        .official-text h4 { color: #008069; margin-bottom: 5px; font-size: 14px; }
+
         #chat-container { width: 450px; height: 90vh; background: #efeae2; display: none; flex-direction: column; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); overflow: hidden; }
         #header { background: #008069; color: white; padding: 15px; font-size: 18px; font-weight: bold; }
-        #messages { list-style-type: none; padding: 20px; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        #messages li { max-width: 75%; padding: 8px 12px; margin-bottom: 10px; border-radius: 7px; font-size: 15px; background: white; align-self: flex-start; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-        .my-msg { background: #d9fdd3 !important; align-self: flex-end !important; }
-        #form { background: #f0f2f5; padding: 10px; display: flex; align-items: center; gap: 10px; }
-        #input { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; outline: none; }
-        #send-btn { background: #00a884; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #messages { list-style-type: none; padding: 20px; flex-grow: 1; overflow-y: auto; background-image: url('https://githubusercontent.com'); background-blend-mode: overlay; background-color: #efeae2; display: flex; flex-direction: column; }
+        #messages li { max-width: 75%; padding: 8px 12px; margin-bottom: 10px; border-radius: 7px; position: relative; font-size: 15px; line-height: 1.4; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .msg-received { background: white; align-self: flex-start; border-top-left-radius: 0 !important; }
+        .msg-sent { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 0 !important; }
+        .username { font-weight: bold; font-size: 12px; color: #128c7e; margin-bottom: 2px; }
+        .msg-text { color: #111; margin-bottom: 12px; }
+        .chat-image { max-width: 100%; border-radius: 5px; margin-bottom: 12px; display: block; }
+        .chat-audio { margin-bottom: 12px; width: 100%; max-width: 240px; outline: none; }
+        .time { font-size: 10px; color: #667781; position: absolute; bottom: 2px; right: 7px; }
+        
+        #form { background: #f0f2f5; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #e9edef; }
+        #input { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 15px; background: white; }
+        .action-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #54656f; padding: 0 5px; }
+        #image-input { display: none; }
+        .recording { color: red !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        #send-btn { background: #00a884; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; }
     </style>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
-    <!-- GİRİŞ EKRANI -->
     <div id="login-container">
-        <h2>Sürətli Canlı Çat</h2>
-        <input type="text" id="username-input" placeholder="Adınızı yazın..." autocomplete="off">
+        <h2>WhatsApp Canlı Chat</h2>
+        <p style="color: #666; font-size: 14px;">Daxil olmaq üçün adınızı yazın:</p>
+        <input type="text" id="username-input" placeholder="Adınız..." autocomplete="off">
         <button id="login-btn">Çata Daxil Ol</button>
+
+        <!-- ROBOTLAR ÜÇÜN REKLAM TƏSDİQ YAZILARI -->
+        <div class="official-text">
+            <h4>Haqqımızda və İstifadə Şərtləri</h4>
+            <p>Bu platforma istifadəçilərin real-vaxt rejimində təhlükəsiz şəkildə mesajlaşması, şəkil və səs yazıları ötürməsi üçün yaradılmış mütərəqqi PWA çat tətbiqidir.</p>
+        </div>
+        <div class="official-text">
+            <h4>Gizlilik Siyasəti (Privacy Policy)</h4>
+            <p>İstifadəçilər tərəfindən göndərilən məlumatlar və media faylları yalnız çat otağındakı əlaqəni təmin etmək məqsədilə WebSocket protokolları vasitəsilə emal olunur.</p>
+        </div>
     </div>
 
-    <!-- ƏSAS ÇAT EKRANI -->
     <div id="chat-container">
-        <div id="header">Canlı Chat (<span id="my-name">...</span>)</div>
+        <div id="header">WhatsApp Canlı Chat (<span id="my-name">...</span>)</div>
         <ul id="messages"></ul>
         <form id="form" action="">
-            <input id="input" autocomplete="off" placeholder="Mesajınızı yazın..." required />
+            <!-- Şəkil göndərmək (📎) -->
+            <label for="image-input" class="action-btn">📎</label>
+            <input type="file" id="image-input" accept="image/*">
+            
+            <!-- Səs yazısı göndərmək (🎙️) -->
+            <button type="button" id="voice-btn" class="action-btn">🎙️</button>
+            
+            <input id="input" autocomplete="off" placeholder="Mesajınızı yazın..." />
             <button id="send-btn">Göndər</button>
         </form>
     </div>
 
     <script>
+        // Sürətli və donmayan qoşulma xətti
+        const socket = io(); 
+        
         const loginContainer = document.getElementById('login-container');
         const chatContainer = document.getElementById('chat-container');
         const usernameInput = document.getElementById('username-input');
         const loginBtn = document.getElementById('login-btn');
         const myNameSpan = document.getElementById('my-name');
+        
         const form = document.getElementById('form');
         const input = document.getElementById('input');
+        const imageInput = document.getElementById('image-input');
+        const voiceBtn = document.getElementById('voice-btn');
         const messages = document.getElementById('messages');
         
-        let myUsername = "";
+        let myUsername = localStorage.getItem('chat_username');
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
 
-        // DÜYMƏYƏ BASANDA İRƏLİ KEÇMƏK MEXANİZMİ (HEÇ BİR SERVERƏ BAĞLI DEYİL, 100% İŞLƏYƏCƏK!)
+        if (myUsername) { startChat(myUsername); }
+
         loginBtn.addEventListener('click', () => {
             const name = usernameInput.value.trim();
             if (name) {
-                myUsername = name;
-                myNameSpan.textContent = myUsername;
-                loginContainer.style.display = 'none'; // Giriş ekranını gizlət
-                chatContainer.style.display = 'flex'; // Çat ekranını aç
-            } else {
-                alert("Zəhmət olmasa adınızı yazın!");
+                localStorage.setItem('chat_username', name);
+                startChat(name);
             }
+        });
+
+        function startChat(username) {
+            myUsername = username;
+            myNameSpan.textContent = myUsername;
+            loginContainer.style.display = 'none';
+            chatContainer.style.display = 'flex';
+        }
+
+        function appendMessage(msg) {
+            const item = document.createElement('li');
+            item.classList.add(msg.username === myUsername ? 'msg-sent' : 'msg-received');
+            let contentHTML = `<div class="username">${msg.username}</div>`;
+            if (msg.image) { contentHTML += `<img src="${msg.image}" class="chat-image" />`; }
+            if (msg.audio) { contentHTML += `<audio src="${msg.audio}" controls class="chat-audio"></audio>`; }
+            if (msg.text) { contentHTML += `<div class="msg-text">${msg.text}</div>`; }
+            contentHTML += `<div class="time">${msg.time}</div>`;
+            item.innerHTML = contentHTML;
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // ŞƏKİL GÖNDƏRMƏK MƏNTİQİ
+        imageInput.addEventListener('change', () => {
+            if (!imageInput.files || !imageInput.files[0]) return;
+            const formData = new FormData();
+            formData.append('image', imageInput.files[0]);
+            
+            fetch('/upload', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.imageUrl) {
+                    socket.emit('chat mesajı', { username: myUsername, text: '', image: data.imageUrl, audio: null });
+                }
+            });
+            imageInput.value = '';
+        });
+
+        // SƏS YAZISI GÖNDƏRMƏK MƏNTİQİ
+        voiceBtn.addEventListener('click', () => {
+            if (!isRecording) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
+                    mediaRecorder.addEventListener("stop", () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob); 
+                        reader.onloadend = () => {
+                            socket.emit('chat mesajı', { username: myUsername, text: '', image: null, audio: reader.result });
+                        }
+                    });
+                    mediaRecorder.start();
+                    isRecording = true;
+                    voiceBtn.classList.add('recording');
+                }).catch(err => alert("Mikrofon tapılmadı"));
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                voiceBtn.classList.remove('recording');
+            }
+        });
+
+        socket.on('keçmiş mesajlar', (savedMessages) => {
+            messages.innerHTML = '';
+            savedMessages.forEach(msg => appendMessage(msg));
         });
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             if (input.value.trim()) {
-                const item = document.createElement('li');
-                item.classList.add('my-msg');
-                item.textContent = myUsername + ": " + input.value;
-                messages.appendChild(item);
-                input.value = '';
-                messages.scrollTop = messages.scrollHeight;
-            }
-        });
-    </script>
-</body>
-</html>
