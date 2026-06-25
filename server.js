@@ -9,8 +9,6 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const DB_FILE = './messages.json';
-
-// Yüngül yaddaş sistemi (Render-də donma yaratmır)
 const multerInMemory = multer({ storage: multer.memoryStorage() });
 
 function getSavedMessages() {
@@ -30,13 +28,12 @@ app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
 app.get('/manifest.json', (req, res) => res.sendFile(__dirname + '/manifest.json'));
 app.get('/sw.js', (req, res) => res.sendFile(__dirname + '/sw.js'));
 
-// ŞƏKİL YÜKLƏMƏ SƏTRİ
 app.post('/upload', multerInMemory.single('image'), (req, res) => {
     if (req.file) {
         const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
         res.json({ imageUrl: base64Image });
     } else {
-        res.status(400).json({ error: 'Şəkil yüklənə bilmədi' });
+        res.status(400).json({ error: 'Xəta' });
     }
 });
 
@@ -48,6 +45,7 @@ io.on('connection', (socket) => {
             username: data.username || 'Anonim',
             text: data.text || '',
             image: data.image || null,
+            audio: data.audio || null, // Səs yazısı dəstəyi
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         saveMessage(newMsg);

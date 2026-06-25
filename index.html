@@ -21,11 +21,18 @@
         .username { font-weight: bold; font-size: 12px; color: #128c7e; margin-bottom: 2px; }
         .msg-text { color: #111; margin-bottom: 12px; }
         .chat-image { max-width: 100%; border-radius: 5px; margin-bottom: 12px; display: block; }
+        .chat-audio { margin-bottom: 12px; width: 100%; max-width: 240px; outline: none; }
         .time { font-size: 10px; color: #667781; position: absolute; bottom: 2px; right: 7px; }
         #form { background: #f0f2f5; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #e9edef; }
         #input { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 15px; background: white; }
         .attach-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #54656f; padding: 0 5px; }
         #image-input { display: none; }
+        
+        /* Səs yazma düyməsinin rəng dəyişmə effekti */
+        .voice-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #54656f; padding: 0 5px; transition: color 0.2s; }
+        .recording { color: red !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
         #send-btn { background: #00a884; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; }
         #send-btn:hover { background: #008069; }
     </style>
@@ -43,8 +50,13 @@
         <div id="header">WhatsApp Canlı Chat (<span id="my-name">...</span>)</div>
         <ul id="messages"></ul>
         <form id="form" action="">
+            <!-- Şəkil Düyməsi -->
             <label for="image-input" class="attach-btn">📎</label>
             <input type="file" id="image-input" accept="image/*">
+            
+            <!-- SƏS YAZMA DÜYMƏSİ (🎙️) -->
+            <button type="button" id="voice-btn" class="voice-btn">🎙️</button>
+
             <input id="input" autocomplete="off" placeholder="Mesajınızı yazın..." />
             <button id="send-btn">Göndər</button>
         </form>
@@ -52,7 +64,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io(); // Avtomatik qoşulma linki
+        const socket = io();
         
         const loginContainer = document.getElementById('login-container');
         const chatContainer = document.getElementById('chat-container');
@@ -63,9 +75,13 @@
         const form = document.getElementById('form');
         const input = document.getElementById('input');
         const imageInput = document.getElementById('image-input');
+        const voiceBtn = document.getElementById('voice-btn');
         const messages = document.getElementById('messages');
         
         let myUsername = localStorage.getItem('chat_username');
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
 
         if (myUsername) { startChat(myUsername); }
 
@@ -94,6 +110,12 @@
 
             let contentHTML = `<div class="username">${msg.username}</div>`;
             if (msg.image) { contentHTML += `<img src="${msg.image}" class="chat-image" />`; }
+            
+            // Əgər mesajda səs yazısı varsa audio pleyer əlavə et
+            if (msg.audio) { 
+                contentHTML += `<audio src="${msg.audio}" controls class="chat-audio"></audio>`; 
+            }
+            
             if (msg.text) { contentHTML += `<div class="msg-text">${msg.text}</div>`; }
             contentHTML += `<div class="time">${msg.time}</div>`;
             
@@ -102,26 +124,62 @@
             messages.scrollTop = messages.scrollHeight;
         }
 
+        // ŞƏKİL SEÇİLƏNDƏ
         imageInput.addEventListener('change', () => {
             const file = imageInput.files[0];
             if (!file) return;
-
             const formData = new FormData();
             formData.append('image', file);
-
             fetch('/upload', { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
                 if (data.imageUrl) {
-                    socket.emit('chat mesajı', {
-                        username: myUsername,
-                        text: '',
-                        image: data.imageUrl
-                    });
+                    socket.emit('chat mesajı', { username: myUsername, text: '', image: data.imageUrl, audio: null });
                 }
-            })
-            .catch(err => console.error('Xəta:', err));
+            });
             imageInput.value = '';
+        });
+
+        // SƏS YAZMA MƏNTİQİ (MİKROFON)
+        voiceBtn.addEventListener('click', () => {
+            if (!isRecording) {
+                // Mikrofon icazəsi istəyirik
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.addEventListener("dataavailable", event => {
+                        audioChunks.push(event.data);
+                    });
+
+                    mediaRecorder.addEventListener("stop", () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob); 
+                        reader.onloadend = () => {
+                            const base64Audio = reader.result;
+                            // Səsi birbaşa çat otağına göndəririk
+                            socket.emit('chat mesajı', {
+                                username: myUsername,
+                                text: '',
+                                image: null,
+                                audio: base64Audio
+                            });
+                        }
+                    });
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    voiceBtn.classList.add('recording'); // Düyməni qırmızı et
+                })
+                .catch(err => alert("Mikrofona icazə verilmədi!"));
+            } else {
+                // Əgər artıq səs yazılırdısa, dayandır və göndər
+                mediaRecorder.stop();
+                isRecording = false;
+                voiceBtn.classList.remove('recording'); // Qırmızı rəngi sil
+            }
         });
 
         socket.on('keçmiş mesajlar', (savedMessages) => {
@@ -132,16 +190,8 @@
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             if (input.value.trim()) {
-                socket.emit('chat mesajı', {
-                    username: myUsername,
-                    text: input.value,
-                    image: null
-                });
+                socket.emit('chat mesajı', { username: myUsername, text: input.value, image: null, audio: null });
                 input.value = '';
             }
         });
 
-        socket.on('chat mesajı', (msg) => { appendMessage(msg); });
-    </script>
-</body>
-</html>
