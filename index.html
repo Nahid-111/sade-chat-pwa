@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Web Style Chat & Audio Call</title>
+    <title>WhatsApp Web Style Chat</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #dddbd1; display: flex; justify-content: center; align-items: center; height: 100vh; }
@@ -12,14 +12,8 @@
         #username-input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
         #login-btn { background: #00a884; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
         #login-btn:hover { background: #008069; }
-        
-        #chat-container { width: 450px; height: 90vh; background: #efeae2; display: none; flex-direction: column; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); overflow: hidden; position: relative; }
-        #header { background: #008069; color: white; padding: 15px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        
-        /* CANLI ZƏNG PANELİ DIZAYNI */
-        #call-status-panel { display: none; background: #128c7e; color: white; padding: 10px; text-align: center; font-size: 14px; position: absolute; top: 55px; left: 0; width: 100%; z-index: 10; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .end-call-btn { background: red; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; }
-
+        #chat-container { width: 450px; height: 90vh; background: #efeae2; display: none; flex-direction: column; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); overflow: hidden; }
+        #header { background: #008069; color: white; padding: 15px; font-size: 18px; font-weight: bold; }
         #messages { list-style-type: none; padding: 20px; flex-grow: 1; overflow-y: auto; background-image: url('https://githubusercontent.com'); background-blend-mode: overlay; background-color: #efeae2; display: flex; flex-direction: column; }
         #messages li { max-width: 75%; padding: 8px 12px; margin-bottom: 10px; border-radius: 7px; position: relative; font-size: 15px; line-height: 1.4; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
         .msg-received { background: white; align-self: flex-start; border-top-left-radius: 0 !important; }
@@ -29,7 +23,6 @@
         .chat-image { max-width: 100%; border-radius: 5px; margin-bottom: 12px; display: block; }
         .chat-audio { margin-bottom: 12px; width: 100%; max-width: 240px; outline: none; }
         .time { font-size: 10px; color: #667781; position: absolute; bottom: 2px; right: 7px; }
-        
         #form { background: #f0f2f5; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #e9edef; }
         #input { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 15px; background: white; }
         .action-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #54656f; padding: 0 5px; }
@@ -49,18 +42,7 @@
     </div>
 
     <div id="chat-container">
-        <div id="header">
-            <div>WhatsApp Canlı (<span id="my-name">...</span>)</div>
-            <!-- SƏSLİ ZƏNG DÜYMƏSİ -->
-            <button type="button" id="call-btn" class="action-btn" style="color:white; font-size:16px;">📞 Zəng Et</button>
-        </div>
-        
-        <!-- Canlı Zəng Paneli -->
-        <div id="call-status-panel">
-            <span id="call-status-text">Zəng edilir...</span>
-            <button id="end-call-btn" class="end-call-btn">Zəngi Bitir</button>
-        </div>
-
+        <div id="header">WhatsApp Canlı Chat (<span id="my-name">...</span>)</div>
         <ul id="messages"></ul>
         <form id="form" action="">
             <label for="image-input" class="action-btn">📎</label>
@@ -79,10 +61,6 @@
         const usernameInput = document.getElementById('username-input');
         const loginBtn = document.getElementById('login-btn');
         const myNameSpan = document.getElementById('my-name');
-        const callBtn = document.getElementById('call-btn');
-        const callStatusPanel = document.getElementById('call-status-panel');
-        const callStatusText = document.getElementById('call-status-text');
-        const endCallBtn = document.getElementById('end-call-btn');
         
         const form = document.getElementById('form');
         const input = document.getElementById('input');
@@ -94,10 +72,6 @@
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
-        
-        // Zəng daxili dəyişənlər
-        let localAudioStream;
-        let callMediaRecorder;
 
         if (myUsername) { startChat(myUsername); }
 
@@ -114,58 +88,7 @@
             myNameSpan.textContent = myUsername;
             loginContainer.style.display = 'none';
             chatContainer.style.display = 'flex';
-            
-            // Serverə mənim onlayn olduğumu bildir
-            socket.emit('join-call-room', myUsername);
         }
-
-        // 📞 ZƏNG ET DÜYMƏSİNƏ BASANDA
-        callBtn.addEventListener('click', () => {
-            const targetUser = prompt("Zəng etmək istədiyiniz şəxsin adını yazın:");
-            if (!targetUser || targetUser === myUsername) return;
-
-            callStatusPanel.style.display = 'flex';
-            callStatusText.textContent = `${targetUser} ilə səsli bağlantı qurulur...`;
-
-            navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                localAudioStream = stream;
-                // Səsi canlı olaraq qarşı tərəfə paketlər halında göndəririk
-                callMediaRecorder = new MediaRecorder(stream);
-                callMediaRecorder.ondataavailable = event => {
-                    if (event.data.size > 0) {
-                        socket.emit('voice-stream', { to: targetUser, from: myUsername, data: event.data });
-                    }
-                };
-                callMediaRecorder.start(250); // Hər 250 milisaniyədən bir səs paketini göndər
-            }).catch(() => alert("Mikrofon tapılmadı"));
-        });
-
-        // Serverdən canlı səs axını gələndə (Zəngi qəbul edən tərəf)
-        socket.on('incoming-voice', (info) => {
-            callStatusPanel.style.display = 'flex';
-            callStatusText.textContent = `${info.from} ilə canlı zəng...`;
-            
-            // Gələn səs paketini dərhal səsləndir
-            const audioBlob = new Blob([info.data], { type: 'audio/webm' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-            audio.play().catch(() => {});
-        });
-
-        // ZƏNGİ BİTİRƏNDƏ
-        endCallBtn.addEventListener('click', () => {
-            if (callMediaRecorder) callMediaRecorder.stop();
-            if (localAudioStream) localAudioStream.getTracks().forEach(track => track.stop());
-            callStatusPanel.style.display = 'none';
-            socket.emit('end-voice-call', myUsername);
-        });
-
-        socket.on('call-ended', () => {
-            if (callMediaRecorder) callMediaRecorder.stop();
-            if (localAudioStream) localAudioStream.getTracks().forEach(track => track.stop());
-            callStatusPanel.style.display = 'none';
-        });
 
         function appendMessage(msg) {
             const item = document.createElement('li');
@@ -174,3 +97,66 @@
             if (msg.image) { contentHTML += `<img src="${msg.image}" class="chat-image" />`; }
             if (msg.audio) { contentHTML += `<audio src="${msg.audio}" controls class="chat-audio"></audio>`; }
             if (msg.text) { contentHTML += `<div class="msg-text">${msg.text}</div>`; }
+            contentHTML += `<div class="time">${msg.time}</div>`;
+            item.innerHTML = contentHTML;
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        imageInput.addEventListener('change', () => {
+            if (!imageInput.files || !imageInput.files[0]) return;
+            const formData = new FormData();
+            formData.append('image', imageInput.files[0]);
+            fetch('/upload', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.imageUrl) {
+                    socket.emit('chat mesajı', { username: myUsername, text: '', image: data.imageUrl, audio: null });
+                }
+            });
+            imageInput.value = '';
+        });
+
+        voiceBtn.addEventListener('click', () => {
+            if (!isRecording) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.addEventListener("dataavailable", event => audioChunks.push(event.data));
+                    mediaRecorder.addEventListener("stop", () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob); 
+                        reader.onloadend = () => {
+                            socket.emit('chat mesajı', { username: myUsername, text: '', image: null, audio: reader.result });
+                        }
+                    });
+                    mediaRecorder.start();
+                    isRecording = true;
+                    voiceBtn.classList.add('recording');
+                }).catch(err => alert("Mikrofon tapılmadı"));
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                voiceBtn.classList.remove('recording');
+            }
+        });
+
+        socket.on('keçmiş mesajlar', (savedMessages) => {
+            messages.innerHTML = '';
+            savedMessages.forEach(msg => appendMessage(msg));
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value.trim()) {
+                socket.emit('chat mesajı', { username: myUsername, text: input.value, image: null, audio: null });
+                input.value = '';
+            }
+        });
+
+        socket.on('chat mesajı', (msg) => { appendMessage(msg); });
+    </script>
+</body>
+</html>
