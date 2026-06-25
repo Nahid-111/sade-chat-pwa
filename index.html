@@ -8,14 +8,12 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #dddbd1; display: flex; justify-content: center; align-items: center; height: 100vh; }
         
-        /* GİRİŞ EKRANI DIZAYNI */
         #login-container { width: 400px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; gap: 20px; }
         #login-container h2 { color: #008069; margin-bottom: 10px; }
         #username-input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
         #login-btn { background: #00a884; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
         #login-btn:hover { background: #008069; }
 
-        /* ÇAT EKRANI DIZAYNI */
         #chat-container { width: 450px; height: 90vh; background: #efeae2; display: none; flex-direction: column; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); overflow: hidden; }
         #header { background: #008069; color: white; padding: 15px; font-size: 18px; font-weight: bold; }
         #messages { list-style-type: none; padding: 20px; flex-grow: 1; overflow-y: auto; background-image: url('https://githubusercontent.com'); background-blend-mode: overlay; background-color: #efeae2; display: flex; flex-direction: column; }
@@ -24,34 +22,37 @@
         .msg-sent { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 0 !important; }
         .username { font-weight: bold; font-size: 12px; color: #128c7e; margin-bottom: 2px; }
         .msg-text { color: #111; margin-bottom: 12px; }
+        .chat-image { max-width: 100%; border-radius: 5px; margin-bottom: 12px; display: block; }
         .time { font-size: 10px; color: #667781; position: absolute; bottom: 2px; right: 7px; }
+        
         #form { background: #f0f2f5; padding: 10px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #e9edef; }
         #input { flex-grow: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 15px; background: white; }
+        
+        /* Şəkil seçmə düyməsinin dizaynı */
+        .attach-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: #54656f; padding: 0 5px; }
+        #image-input { display: none; } /* Gizli fayl seçici */
+        
         #send-btn { background: #00a884; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; }
         #send-btn:hover { background: #008069; }
     </style>
 </head>
 <body>
 
-    <!-- 1. ADDIM: GİRİŞ PANELİ -->
     <div id="login-container">
         <h2>WhatsApp Canlı Chat</h2>
         <p style="color: #666; font-size: 14px;">Daxil olmaq üçün adınızı yazın:</p>
         <input type="text" id="username-input" placeholder="Adınız..." autocomplete="off">
         <button id="login-btn">Çata Daxil Ol</button>
-    </div><link rel="manifest" href="/manifest.json">
-<script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
-    }
-</script>
+    </div>
 
-
-    <!-- 2. ADDIM: ƏSAS ÇAT PANELİ -->
     <div id="chat-container">
         <div id="header">WhatsApp Canlı Chat (<span id="my-name">...</span>)</div>
         <ul id="messages"></ul>
         <form id="form" action="">
+            <!-- Şəkil Əlavə Etmə Düyməsi (Ataş) -->
+            <label for="image-input" class="attach-btn">📎</label>
+            <input type="file" id="image-input" accept="image/*">
+            
             <input id="input" autocomplete="off" placeholder="Mesajınızı yazın..." />
             <button id="send-btn">Göndər</button>
         </form>
@@ -59,8 +60,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io('https://sade-chat-pwa.onrender.com'); 
-
+        const socket = io('https://onrender.com'); // Sizin Render linkiniz
         
         const loginContainer = document.getElementById('login-container');
         const chatContainer = document.getElementById('chat-container');
@@ -70,16 +70,13 @@
         
         const form = document.getElementById('form');
         const input = document.getElementById('input');
+        const imageInput = document.getElementById('image-input');
         const messages = document.getElementById('messages');
         
         let myUsername = localStorage.getItem('chat_username');
 
-        // Əgər ad əvvəldən yaddaşda varsa, birbaşa çata keç
-        if (myUsername) {
-            startChat(myUsername);
-        }
+        if (myUsername) { startChat(myUsername); }
 
-        // Giriş düyməsinə basanda
         loginBtn.addEventListener('click', () => {
             const name = usernameInput.value.trim();
             if (name) {
@@ -91,8 +88,8 @@
         function startChat(username) {
             myUsername = username;
             myNameSpan.textContent = myUsername;
-            loginContainer.style.display = 'none'; // Giriş ekranını gizlət
-            chatContainer.style.display = 'flex'; // Çat ekranını aç
+            loginContainer.style.display = 'none';
+            chatContainer.style.display = 'flex';
         }
 
         function appendMessage(msg) {
@@ -103,14 +100,52 @@
                 item.classList.add('msg-received');
             }
 
-            item.innerHTML = `
-                <div class="username">${msg.username}</div>
-                <div class="msg-text">${msg.text}</div>
-                <div class="time">${msg.time}</div>
-            `;
+            let contentHTML = `<div class="username">${msg.username}</div>`;
+            
+            // Əgər mesajda şəkil varsa, onu ekranda göstər
+            if (msg.image) {
+                contentHTML += `<img src="${msg.image}" class="chat-image" />`;
+            }
+            
+            // Əgər mətn də varsa, əlavə et
+            if (msg.text) {
+                contentHTML += `<div class="msg-text">${msg.text}</div>`;
+            }
+
+            contentHTML += `<div class="time">${msg.time}</div>`;
+            item.innerHTML = contentHTML;
             messages.appendChild(item);
             messages.scrollTop = messages.scrollHeight;
         }
+
+        // ŞƏKİL SEÇİLƏNDƏ AVTOMATİK SERVERƏ YÜKLƏ
+        imageInput.addEventListener('change', () => {
+            const file = imageInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            // Şəkli arxa fona (POST API) göndəririk
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.imageUrl) {
+                    // Yüklənən şəklin linkini canlı olaraq çata ötürürük
+                    socket.emit('chat mesajı', {
+                        username: myUsername,
+                        text: '',
+                        image: data.imageUrl
+                    });
+                }
+            })
+            .catch(err => console.error('Şəkil yüklənərkən xəta:', err));
+            
+            imageInput.value = ''; // Girişi təmizlə
+        });
 
         socket.on('keçmiş mesajlar', (savedMessages) => {
             messages.innerHTML = '';
@@ -122,7 +157,8 @@
             if (input.value.trim()) {
                 socket.emit('chat mesajı', {
                     username: myUsername,
-                    text: input.value
+                    text: input.value,
+                    image: null
                 });
                 input.value = '';
             }
